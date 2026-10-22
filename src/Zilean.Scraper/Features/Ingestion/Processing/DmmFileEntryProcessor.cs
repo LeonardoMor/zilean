@@ -106,7 +106,22 @@ public partial class DmmFileEntryProcessor(
 
         try
         {
-            var decodedJson = Decompressor.FromEncodedUriComponent(match.Groups[1].Value);
+            var encodedPayload = match.Groups[1].Value;
+            if (encodedPayload.StartsWith("id=", StringComparison.Ordinal))
+            {
+                if (!Guid.TryParseExact(encodedPayload.AsSpan(3), "D", out var listId))
+                {
+                    throw new InvalidDataException("The stored DMM hashlist ID is not a UUID.");
+                }
+
+                var payloadPath = Path.Combine(
+                    Path.GetDirectoryName(filePath)!, "repo", "lists", $"{listId:D}.txt");
+                var storedSource = await File.ReadAllTextAsync(payloadPath, cancellationToken);
+                var storedMatch = HashCollectionMatcher.Match(storedSource);
+                encodedPayload = storedMatch.Success ? storedMatch.Groups[1].Value : storedSource.Trim();
+            }
+
+            var decodedJson = Decompressor.FromEncodedUriComponent(encodedPayload);
 
             var utf8Bytes = Encoding.UTF8.GetBytes(decodedJson);
             var span = new ReadOnlySpan<byte>(utf8Bytes);
@@ -134,7 +149,6 @@ public partial class DmmFileEntryProcessor(
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error parsing file: {FilePath}", filePath);
-            await AddParsedPage(filenameOnly, 0, cancellationToken);
             return [];
         }
         finally
