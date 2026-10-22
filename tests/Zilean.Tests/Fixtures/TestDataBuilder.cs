@@ -98,7 +98,17 @@ public static class TestDataBuilder
 
     public static async Task SeedAsync(ZileanDbContext dbContext)
     {
-        dbContext.Torrents.AddRange(_theMatrix, _theWitcherS01E01, _breakingBadS05E16, _mistbornEpub, _duneAudiobook);
+        TorrentInfo[] torrents = [_theMatrix, _theWitcherS01E01, _breakingBadS05E16, _mistbornEpub, _duneAudiobook];
+        dbContext.ImdbFiles.AddRange(torrents
+            .Where(torrent => torrent.ImdbId is not null)
+            .Select(torrent => new ImdbFile
+            {
+                ImdbId = torrent.ImdbId!,
+                Category = torrent.Category,
+                Title = torrent.ParsedTitle,
+                Year = torrent.Year ?? 0
+            }));
+        dbContext.Torrents.AddRange(torrents);
         await dbContext.SaveChangesAsync();
     }
 }
