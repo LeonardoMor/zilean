@@ -66,6 +66,12 @@ public class ZileanWebApplicationFactory : WebApplicationFactory<Program>
         SetEnvVar("Zilean__Torrents__EnableCacheCheckEndpoint", "true");
         SetEnvVar("Zilean__Torrents__EnableScrapeEndpoint", "true");
 
+        // The app appends its JSON after the test's in-memory configuration.
+        // Its final environment provider must also disable startup scrapers.
+        Environment.SetEnvironmentVariable("Zilean__Dmm__EnableScraping", "false");
+        Environment.SetEnvironmentVariable("Zilean__Ingestion__EnableScraping", "false");
+        Environment.SetEnvironmentVariable("Zilean__Imdb__EnableImportMatching", "false");
+
         builder.UseEnvironment("Testing");
 
         builder.ConfigureAppConfiguration((context, config) =>

@@ -83,8 +83,12 @@ public partial class DmmFileEntryProcessor(
                 try
                 {
                     var (torrents, page) = await ProcessPageAsync(file, fileName, cancellationToken);
-                    NewPages.TryAdd(fileName, page.EntryCount);
-                    parsedPagesBuffer.Add(page);
+                    if (page is not null)
+                    {
+                        NewPages.TryAdd(fileName, page.EntryCount);
+                        parsedPagesBuffer.Add(page);
+                    }
+
                     newTorrentsFound += torrents.Count;
                     foreach (var torrent in torrents)
                     {
@@ -140,7 +144,7 @@ public partial class DmmFileEntryProcessor(
         }
     }
 
-    private async Task<(List<ExtractedDmmEntry> Torrents, ParsedPages Page)> ProcessPageAsync(string filePath, string filenameOnly, CancellationToken cancellationToken)
+    private async Task<(List<ExtractedDmmEntry> Torrents, ParsedPages? Page)> ProcessPageAsync(string filePath, string filenameOnly, CancellationToken cancellationToken)
     {
         if (!File.Exists(filePath))
         {
@@ -159,7 +163,22 @@ public partial class DmmFileEntryProcessor(
 
         try
         {
-            var decodedJson = Decompressor.FromEncodedUriComponent(match.Groups[1].Value);
+            var encodedPayload = match.Groups[1].Value;
+            if (encodedPayload.StartsWith("id=", StringComparison.Ordinal))
+            {
+                if (!Guid.TryParseExact(encodedPayload.AsSpan(3), "D", out var listId))
+                {
+                    throw new InvalidDataException("The stored DMM hashlist ID is not a UUID.");
+                }
+
+                var payloadPath = Path.Combine(
+                    Path.GetDirectoryName(filePath)!, "repo", "lists", $"{listId:D}.txt");
+                var storedSource = await File.ReadAllTextAsync(payloadPath, cancellationToken);
+                var storedMatch = HashCollectionMatcher.Match(storedSource);
+                encodedPayload = storedMatch.Success ? storedMatch.Groups[1].Value : storedSource.Trim();
+            }
+
+            var decodedJson = Decompressor.FromEncodedUriComponent(encodedPayload);
 
             var utf8Bytes = Encoding.UTF8.GetBytes(decodedJson);
             var span = new ReadOnlySpan<byte>(utf8Bytes);
@@ -185,7 +204,9 @@ public partial class DmmFileEntryProcessor(
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error parsing file: {FilePath}", filePath);
-            return ([], new ParsedPages { EntryCount = 0, Page = filenameOnly });
+            // A failed decode is not persisted as a parsed page, so the page is retried
+            // on the next sync instead of being stored as an empty page forever.
+            return ([], null);
         }
         finally
         {

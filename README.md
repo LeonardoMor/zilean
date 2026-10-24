@@ -74,6 +74,15 @@ environment:
 
 The initial DMM sync is **resumable** - if interrupted, it picks up where it left off on next startup. Expected initial sync duration varies by hardware (typically 30min-2hrs for parsing, longer for IMDB matching).
 
+Both inline-fragment hashlists and `#id=<UUID>` publications are supported. Stored
+payloads are read from `lists/<UUID>.txt` in the cloned repository, including
+compressed text and migrated legacy HTML pages.
+
+Failed reads or decoding remain eligible for the next sync. On upgrade, only
+zero-entry parsed-page cache records are cleared so previously unsupported lists
+can retry; legitimate empty lists are rechecked once too. Imported torrents and
+successfully parsed pages are preserved.
+
 ### Timezone
 
 Set the `TZ` environment variable to display log timestamps in your local timezone:
