@@ -22,6 +22,12 @@ public class ImdbFile
     public string? Title { get; set; }
 
     /// <summary>
+    /// The original (often non-English) title from IMDb's <c>originalTitle</c> column,
+    /// e.g. <c>Shingeki no Kyojin</c> for <c>Attack on Titan</c>.
+    /// </summary>
+    public string? OriginalTitle { get; set; }
+
+    /// <summary>
     /// Whether the entry is classified as adult content.
     /// </summary>
     public bool Adult { get; set; }

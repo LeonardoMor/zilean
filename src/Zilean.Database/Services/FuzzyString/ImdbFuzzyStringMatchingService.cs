@@ -264,7 +264,7 @@ public class ImdbFuzzyStringMatchingService(ILogger<ImdbFuzzyStringMatchingServi
         await using var db = await dbContextFactory.CreateDbContextAsync();
         var imdbFiles = await db.ImdbFiles
             .FromSqlRaw("""
-            SELECT "ImdbId", "Title", "Adult", "Category", "Year" FROM public."ImdbFiles"
+            SELECT "ImdbId", "Title", "OriginalTitle", "Adult", "Category", "Year" FROM public."ImdbFiles"
             WHERE "Category" IN ('movie', 'tvMovie')
             """)
             .AsNoTracking()
@@ -286,7 +286,7 @@ public class ImdbFuzzyStringMatchingService(ILogger<ImdbFuzzyStringMatchingServi
         await using var db = await dbContextFactory.CreateDbContextAsync();
         var imdbFiles = await db.ImdbFiles
             .FromSqlRaw("""
-            SELECT "ImdbId", "Title", "Adult", "Category", "Year" FROM public."ImdbFiles"
+            SELECT "ImdbId", "Title", "OriginalTitle", "Adult", "Category", "Year" FROM public."ImdbFiles"
             WHERE "Category" IN ('tvSeries', 'tvShort', 'tvMiniSeries', 'tvSpecial')
             """)
             .AsNoTracking()

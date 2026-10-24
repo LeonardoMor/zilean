@@ -25,7 +25,7 @@ public class ImdbFileService(ILogger<ImdbFileService> logger, IDbContextFactory<
         {
             SetOutputIdentity = false,
             BatchSize = 5000,
-            PropertiesToIncludeOnUpdate = [string.Empty],
+            PropertiesToIncludeOnUpdate = [nameof(ImdbFile.OriginalTitle)],
             UpdateByProperties = ["ImdbId"],
             BulkCopyTimeout = 0,
             TrackingEntities = false,

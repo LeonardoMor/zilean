@@ -57,12 +57,14 @@ public class ImdbFileProcessor(ILogger<ImdbFileProcessor> logger, IImdbFileServi
             var isAdultSet = int.TryParse(csv.GetField(4), out var adult);
             var yearField = csv.GetField(5);
             var isYearValid = int.TryParse(yearField == @"\N" ? "0" : yearField, out var year);
+            var originalTitle = csv.GetField(3);
 
             var movieData = new ImdbFile
             {
                 ImdbId = csv.GetField(0),
                 Category = csv.GetField(1),
                 Title = csv.GetField(2),
+                OriginalTitle = string.IsNullOrEmpty(originalTitle) || originalTitle == @"\N" ? null : originalTitle,
                 Adult = isAdultSet && adult == 1,
                 Year = isYearValid ? year : 0
             };

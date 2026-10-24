@@ -263,6 +263,7 @@ public class ImdbLuceneMatchingService(ILogger<ImdbLuceneMatchingService> logger
                         )
                     )
                 ) AS "Title",
+                "OriginalTitle",
                 "Adult",
                 "Category",
                 "Year"
