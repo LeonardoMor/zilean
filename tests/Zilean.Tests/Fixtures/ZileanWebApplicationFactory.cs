@@ -68,9 +68,10 @@ public class ZileanWebApplicationFactory : WebApplicationFactory<Program>
 
         // The app appends its JSON after the test's in-memory configuration.
         // Its final environment provider must also disable startup scrapers.
-        Environment.SetEnvironmentVariable("Zilean__Dmm__EnableScraping", "false");
-        Environment.SetEnvironmentVariable("Zilean__Ingestion__EnableScraping", "false");
-        Environment.SetEnvironmentVariable("Zilean__Imdb__EnableImportMatching", "false");
+        // A test that sets one of these itself before building the factory keeps its value.
+        SetDefaultEnvVar("Zilean__Dmm__EnableScraping", "false");
+        SetDefaultEnvVar("Zilean__Ingestion__EnableScraping", "false");
+        SetDefaultEnvVar("Zilean__Imdb__EnableImportMatching", "false");
 
         builder.UseEnvironment("Testing");
 
@@ -117,6 +118,9 @@ public class ZileanWebApplicationFactory : WebApplicationFactory<Program>
         client.DefaultRequestHeaders.Add("X-API-KEY", config.ApiKey);
         return client;
     }
+
+    private static void SetDefaultEnvVar(string key, string value) =>
+        Environment.SetEnvironmentVariable(key, Environment.GetEnvironmentVariable(key) ?? value);
 
     private void SetEnvVar(string key, string? value)
     {

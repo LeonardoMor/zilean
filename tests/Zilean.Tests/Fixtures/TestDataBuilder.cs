@@ -109,6 +109,13 @@ public static class TestDataBuilder
     public static async Task SeedAsync(ZileanDbContext dbContext)
     {
         TorrentInfo[] torrents = [_theMatrix, _theWitcherS01E01, _breakingBadS05E16, _mistbornEpub, _duneAudiobook];
+        // The torrent rows are static and shared by every fixture. EF fixes up the Imdb
+        // navigation on the first seed, so clear it or a later seed tracks two ImdbFiles per key.
+        foreach (var torrent in torrents)
+        {
+            torrent.Imdb = null;
+        }
+
         dbContext.ImdbFiles.AddRange(torrents
             .Where(torrent => torrent.ImdbId is not null)
             .Select(torrent => new ImdbFile

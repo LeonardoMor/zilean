@@ -39,7 +39,8 @@ public class DmmHashlistIngestionTests(DmmHashlistFixture fixture) : IClassFixtu
     private AsyncServiceScope _scope;
     private ZileanDbContext _database = null!;
     private DmmService _pages = null!;
-    private ParseTorrentNameService _parser = null!;
+    private PythonRuntimeService _python = null!;
+    private TorrentParser _parser = null!;
 
     public async Task InitializeAsync()
     {
@@ -47,8 +48,13 @@ public class DmmHashlistIngestionTests(DmmHashlistFixture fixture) : IClassFixtu
         _scope = fixture.Services.CreateAsyncScope();
         _database = _scope.ServiceProvider.GetRequiredService<ZileanDbContext>();
         await DeleteOwnPages();
-        _pages = new DmmService(NullLogger<DmmService>.Instance, fixture.Configuration, fixture.Services);
-        _parser = new ParseTorrentNameService(NullLogger<ParseTorrentNameService>.Instance, fixture.Configuration);
+        _pages = new DmmService(fixture.Services.GetRequiredService<IDbContextFactory<ZileanDbContext>>());
+        // The parser is never reached: every hash in the fixtures is reported as already stored.
+        _python = new PythonRuntimeService(NullLogger<PythonRuntimeService>.Instance, fixture.Configuration);
+        _parser = new TorrentParser(
+            _python,
+            NullLogger<TorrentParser>.Instance,
+            fixture.Configuration);
         _torrents.GetBlacklistedItems().Returns(Task.FromResult(new HashSet<string>()));
         // These real hashes already exist downstream. Exercise decoding and page persistence
         // without making this ingestion-boundary regression depend on RTN/Plex metadata.
@@ -61,7 +67,7 @@ public class DmmHashlistIngestionTests(DmmHashlistFixture fixture) : IClassFixtu
     {
         await DeleteOwnPages();
         await _scope.DisposeAsync();
-        await _parser.StopPythonEngine();
+        await _python.StopPythonEngine();
         Directory.Delete(_directory, true);
     }
 

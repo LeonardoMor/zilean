@@ -17,7 +17,7 @@ public class DmmHashlistFixture : IAsyncLifetime
         await _postgres.StartAsync();
         Configuration.Database.ConnectionString = _postgres.GetConnectionString();
         Services = new ServiceCollection()
-            .AddDbContext<ZileanDbContext>(options => options.UseNpgsql(Configuration.Database.ConnectionString))
+            .AddDbContextFactory<ZileanDbContext>(options => options.UseNpgsql(Configuration.Database.ConnectionString))
             .BuildServiceProvider();
 
         await using var scope = Services.CreateAsyncScope();
