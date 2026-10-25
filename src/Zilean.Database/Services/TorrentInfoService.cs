@@ -107,7 +107,13 @@ public class TorrentInfoService(ILogger<TorrentInfoService> logger, ZileanConfig
     /// <inheritdoc/>
     public async Task<TorrentInfo[]> SearchForTorrentInfoFiltered(TorrentInfoFilter filter, int? limit = null)
     {
-        var (queryWithoutYear, extractedYear) = Parsing.ExtractTrailingYear(filter.Query);
+        // Sonarr and manual searches put the season in the text ("Title S04", "Title S04E05").
+        // Left in, the marker drags trigram similarity under the threshold and nothing matches,
+        // so it is moved into the Season/Episode filters. Explicit season/ep parameters win.
+        var (queryWithoutSeason, extractedSeason, extractedEpisode) = Parsing.ExtractSeasonEpisode(filter.Query);
+        var effectiveSeason = filter.Season ?? extractedSeason;
+        var effectiveEpisode = filter.Episode ?? (filter.Season is null ? extractedEpisode : null);
+        var (queryWithoutYear, extractedYear) = Parsing.ExtractTrailingYear(queryWithoutSeason);
         var cleanQuery = Parsing.CleanQuery(queryWithoutYear);
         var effectiveYear = filter.Year ?? extractedYear;
         var imdbId = EnsureCorrectFormatImdbId(filter);
@@ -134,8 +140,8 @@ public class TorrentInfoService(ILogger<TorrentInfoService> logger, ZileanConfig
         var parameters = new object[]
         {
             new NpgsqlParameter("@Query", (object?)cleanQuery ?? DBNull.Value),
-            new NpgsqlParameter("@Season", (object?)filter.Season ?? DBNull.Value),
-            new NpgsqlParameter("@Episode", (object?)filter.Episode ?? DBNull.Value),
+            new NpgsqlParameter("@Season", (object?)effectiveSeason ?? DBNull.Value),
+            new NpgsqlParameter("@Episode", (object?)effectiveEpisode ?? DBNull.Value),
             new NpgsqlParameter("@Year", (object?)effectiveYear ?? DBNull.Value),
             new NpgsqlParameter("@Language", (object?)filter.Language ?? DBNull.Value),
             new NpgsqlParameter("@Resolution", (object?)filter.Resolution ?? DBNull.Value),

@@ -251,4 +251,76 @@ public class ApiIntegrationTests
         results!.Should().BeEmpty(
             "because no seed-data torrent matches 'Nonexistent Torrent Title XYZ123'");
     }
+
+    private async Task<List<string>> TorznabTitles(string url)
+    {
+        var response = await _client.GetAsync(url);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var doc = XDocument.Parse(await response.Content.ReadAsStringAsync());
+        return doc.Root!.Element("channel")?.Elements("item")
+            .Select(i => i.Element("title")!.Value)
+            .ToList() ?? [];
+    }
+
+    [Fact]
+    public async Task Torznab_Search_PlainTitle_ReturnsShow()
+    {
+        var titles = await TorznabTitles("/torznab/api?t=search&q=Breaking%20Bad");
+
+        titles.Should().Contain("Breaking.Bad.S05E16.720p.BluRay");
+    }
+
+    [Fact]
+    public async Task Torznab_Search_SeasonInQuery_ReturnsSeason()
+    {
+        var titles = await TorznabTitles("/torznab/api?t=search&q=Breaking%20Bad%20S05");
+
+        titles.Should().Contain("Breaking.Bad.S05E16.720p.BluRay",
+            "an S05 marker in q must become a season filter instead of breaking the trigram match");
+    }
+
+    [Fact]
+    public async Task Torznab_Search_OtherSeasonInQuery_ExcludesShow()
+    {
+        var titles = await TorznabTitles("/torznab/api?t=search&q=Breaking%20Bad%20S04");
+
+        titles.Should().NotContain("Breaking.Bad.S05E16.720p.BluRay", "the seed only has season 5");
+    }
+
+    [Fact]
+    public async Task Torznab_Search_SeasonEpisodeInQuery_ReturnsEpisode()
+    {
+        var match = await TorznabTitles("/torznab/api?t=search&q=Breaking%20Bad%20S05E16");
+        var other = await TorznabTitles("/torznab/api?t=search&q=Breaking%20Bad%20S05E15");
+
+        match.Should().Contain("Breaking.Bad.S05E16.720p.BluRay");
+        other.Should().NotContain("Breaking.Bad.S05E16.720p.BluRay", "the seed only has episode 16");
+    }
+
+    [Fact]
+    public async Task Torznab_TvSearch_SeasonParam_ReturnsSeason()
+    {
+        var match = await TorznabTitles("/torznab/api?t=tvsearch&q=Breaking%20Bad&season=5");
+        var other = await TorznabTitles("/torznab/api?t=tvsearch&q=Breaking%20Bad&season=4");
+
+        match.Should().Contain("Breaking.Bad.S05E16.720p.BluRay");
+        other.Should().NotContain("Breaking.Bad.S05E16.720p.BluRay");
+    }
+
+    [Fact]
+    public async Task Torznab_TvSearch_SeasonAndEpisodeParams_ReturnsEpisode()
+    {
+        var titles = await TorznabTitles("/torznab/api?t=tvsearch&q=Breaking%20Bad&season=5&ep=16");
+
+        titles.Should().Contain("Breaking.Bad.S05E16.720p.BluRay");
+    }
+
+    [Fact]
+    public async Task Torznab_TvSearch_SeasonInQueryText_ReturnsSeason()
+    {
+        // Sonarr sends tvsearch with both the season param and a season marker in q.
+        var titles = await TorznabTitles("/torznab/api?t=tvsearch&q=Breaking%20Bad%20S05&season=5");
+
+        titles.Should().Contain("Breaking.Bad.S05E16.720p.BluRay");
+    }
 }

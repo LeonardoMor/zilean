@@ -151,7 +151,7 @@ public static class TorznabEndpoints
             ? queryQueryType switch
             {
                 "movie" => "movie",
-                "tvSearch" => "tvSeries",
+                "tvsearch" => "tvSeries",
                 "xxx" => "xxx",
                 "book-search" => "book",
                 _ => null

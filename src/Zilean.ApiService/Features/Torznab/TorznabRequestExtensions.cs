@@ -29,7 +29,8 @@ public static class TorznabRequestExtensions
             };
             if (request.t != null)
             {
-                query.QueryType = request.t;
+                // Torznab clients send t=tvsearch; match the lowercase names IsTVSearch and friends use.
+                query.QueryType = request.t.ToLowerInvariant();
             }
 
             if (!string.IsNullOrWhiteSpace(request.season))
@@ -65,7 +66,7 @@ public static class TorznabRequestExtensions
                 : query.QueryType switch
                 {
                     "movie" when !string.IsNullOrWhiteSpace(request.imdbid) => [TorznabCategoryTypes.Movies.Id],
-                    "tvSearch" when !string.IsNullOrWhiteSpace(request.imdbid) => [TorznabCategoryTypes.TV.Id],
+                    "tvsearch" when !string.IsNullOrWhiteSpace(request.imdbid) => [TorznabCategoryTypes.TV.Id],
                     "xxx" when !string.IsNullOrWhiteSpace(request.imdbid) => [TorznabCategoryTypes.XXX.Id],
                     _ => []
                 };

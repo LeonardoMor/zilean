@@ -24,6 +24,8 @@ public static partial class Parsing
     private static partial Regex SpaceRemovalRegex();
     [GeneratedRegex(@"\s+\(?(19\d{2}|20\d{2})\)?\s*$", RegexOptions.Compiled)]
     private static partial Regex TrailingYearRegex();
+    [GeneratedRegex(@"(?i)(?<![\p{L}\p{N}])(?:S(?<s>\d{1,3})(?:\s?E(?<e>\d{1,4}))?|(?<s>\d{1,2})x(?<e>\d{1,3})|Season\s+(?<s>\d{1,3})(?:\s+Episode\s+(?<e>\d{1,4}))?)(?![\p{L}\p{N}])", RegexOptions.Compiled)]
+    private static partial Regex SeasonEpisodeRegex();
 
     /// <summary>
     /// Trims leading and trailing whitespace from the given string.
@@ -357,5 +359,36 @@ public static partial class Parsing
         var year = int.Parse(match.Groups[1].Value);
         var cleaned = query[..match.Index].TrimEnd();
         return (cleaned, year);
+    }
+
+    /// <summary>
+    /// Extracts a season (and optional episode) marker such as <c>S04</c>, <c>S04E05</c>, <c>4x05</c> or
+    /// <c>Season 4</c> from a free-text query. The text before the marker is kept as the title; anything after
+    /// it (quality tags and the like) is dropped. When no title text precedes the marker the input is returned unchanged.
+    /// </summary>
+    /// <param name="query">The query string, e.g. <c>NYPD Blue S04</c>.</param>
+    /// <returns>A tuple of the title part, the season and the episode, or the input with <c>null</c> numbers if no marker was found.</returns>
+    public static (string? Query, int? Season, int? Episode) ExtractSeasonEpisode(string? query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return (query, null, null);
+        }
+
+        var match = SeasonEpisodeRegex().Match(query);
+        if (!match.Success)
+        {
+            return (query, null, null);
+        }
+
+        var title = query[..match.Index].TrimEnd(' ', '-', '.', '_', '(', '[').TrimEnd();
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            return (query, null, null);
+        }
+
+        var season = int.Parse(match.Groups["s"].Value);
+        int? episode = match.Groups["e"].Success ? int.Parse(match.Groups["e"].Value) : null;
+        return (title, season, episode);
     }
 }
