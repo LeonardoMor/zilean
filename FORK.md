@@ -25,6 +25,10 @@ The API key log redaction (the key is logged at startup only as its first six ch
 
 - The DMM git clone and pull already retry with exponential backoff (5 attempts) in the base, so nothing was ported from [AyushSehrawat/zilean](https://github.com/AyushSehrawat/zilean).
 
+## How this repository is kept
+
+The GitHub repository gets the public branch by a manual push from the maintainer, as `main`, along with release tags. There is no mirror, so nothing arrives here on its own.
+
 ## Licence
 
 MIT, see [LICENSE](LICENSE). The original author and the authors of each fork included here agreed to the MIT licence for their code.
