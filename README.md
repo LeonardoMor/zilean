@@ -2,9 +2,67 @@
 
 <img src="docs/Writerside/images/zilean-logo.jpg" alt="zilean logo" width="300" height="300">
 
-> This fork (`SolidRhino/zilean`) tracks upstream [`Thoroslives/zilean`](https://github.com/Thoroslives/zilean) and is **14 commits ahead** of upstream's last commit. It contains bug fixes and improvements: GiST KNN trigram search, flexible DB config, incremental DMM sync, health checks, books and audiobooks support, observability and log gating, IMDB match cache, search-q-year extraction, XML doc enforcement, and more.
->
-> The published image (`ghcr.io/solidrhino/zilean:latest`, currently `v3.10.12`) is the latest stable build. PRs welcome.
+This is a fork of [iPromKnight/zilean](https://github.com/iPromKnight/zilean) that brings a few community forks together in one image. It builds on [SolidRhino/zilean](https://github.com/SolidRhino/zilean), which in turn builds on [Thoroslives/zilean](https://github.com/Thoroslives/zilean).
+
+## About this fork
+
+What it merges, with thanks to each author:
+
+- [SolidRhino/zilean](https://github.com/SolidRhino/zilean) `main` at `61bfa90` as the base. Besides the Thoroslives work it has the API key log redaction ([#3](https://github.com/SolidRhino/zilean/pull/3)), security hardening, the GiST KNN trigram search, batched ParsedPages writes and the blacklist endpoints.
+- [Thoroslives/zilean PR #26](https://github.com/Thoroslives/zilean/pull/26) by [yowmamasita](https://github.com/yowmamasita/zilean): DMM now publishes some hashlists as `#id=<UUID>` stub pages, with the payload stored in the hashlists repository. The scraper reads those payloads, and a page that fails to decode is retried on the next sync instead of being saved as empty. The two commits are merged with their original history.
+- The IMDb `originalTitle` column from [cloudpftc/zilean](https://github.com/cloudpftc/zilean), ported by hand.
+
+What it fixes on top:
+
+- Season and episode searches. A query such as `NYPD Blue S04` used to be matched as a whole against the title, so the `S04` part pushed the similarity under the threshold and nothing came back. `S04`, `S04E05`, `4x05` and `Season 4` are now taken out of the query text and used as season and episode filters, unless the request already sets them.
+- `t=tvsearch` is matched without regard to case, so it maps to the TV category.
+- The `RetryFailedDmmHashlists` migration designer matches the GiST trigram index of this base, and the PR #26 tests run against it.
+- The image is built and pushed to `ghcr.io/h1n054ur/zilean` when a `v*` tag is pushed.
+
+[FORK.md](FORK.md) lists what was left out and why.
+
+### Running it
+
+```yaml
+services:
+  zilean:
+    image: ghcr.io/h1n054ur/zilean:latest
+    restart: unless-stopped
+    ports:
+      - "8181:8181"
+    volumes:
+      - zilean-data:/app/data
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PASSWORD=<your-postgres-password>
+      - GITHUB_TOKEN=<optional-github-token>
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    shm_size: 256m
+    volumes:
+      - zilean-pg:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=zilean
+      - POSTGRES_PASSWORD=<your-postgres-password>
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d zilean"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  zilean-data:
+  zilean-pg:
+```
+
+The API key is created on first start and stored in `/app/data/settings.json`. The rest of this README comes from the upstream forks and covers configuration in more detail.
+
+## Overview
 
 Zilean is a Torznab indexer for [DebridMediaManager](https://github.com/debridmediamanager/debrid-media-manager) sourced content shared by users.
 It supports films, TV, books, and audiobooks through a single Torznab API, and can be configured as an indexer in Prowlarr, Sonarr, Radarr, Shelfarr, and other *arr applications.
@@ -17,23 +75,23 @@ Zilean requires only **PostgreSQL 16+** with the `pg_trgm` and `unaccent` extens
 ## Docker Image
 
 ```
-ghcr.io/solidrhino/zilean:latest
+ghcr.io/h1n054ur/zilean:latest
 ```
 
-## Fork Changes
+## Changes in the SolidRhino base
 
-This fork includes improvements to reliability, search quality, security, and media type support over upstream. Key additions include:
+The SolidRhino fork improved reliability, search quality, security and media type support over upstream. Its main additions:
 
-- **GiST KNN trigram search** — two-stage `ORDER BY ... <-> query FETCH FIRST N ROWS WITH TIES` + outer re-sort for relevance-ordered results
-- **Book/audiobook category detection** — post-RTN heuristics via file extension and title keywords
-- **Graceful degradation** — API continues serving when Python runtime is unavailable
-- **Incremental DMM sync** — resumable; picks up where interrupted on next startup
-- **Flexible database configuration** — full connection string, individual env vars, or defaults
-- **XML doc enforcement** — `CS1591` set to `warning`; all public members documented across the solution
-- **Dashboard** — Blazor + Syncfusion dashboard with cookie-based auth
-- **API key authentication** — `X-API-KEY` header for protected endpoints
+- **GiST KNN trigram search**: two-stage `ORDER BY ... <-> query FETCH FIRST N ROWS WITH TIES` + outer re-sort for relevance-ordered results
+- **Book/audiobook category detection**: post-RTN heuristics via file extension and title keywords
+- **Graceful degradation**: API continues serving when Python runtime is unavailable
+- **Incremental DMM sync**: resumable, picks up where it stopped on the next startup
+- **Flexible database configuration**: full connection string, individual env vars, or defaults
+- **XML doc enforcement**: `CS1591` set to `warning`, all public members documented across the solution
+- **Dashboard**: Blazor + Syncfusion dashboard with cookie-based auth
+- **API key authentication**: `X-API-KEY` header for protected endpoints
 
-See [Releases](https://github.com/SolidRhino/zilean/releases) for the full changelog.
+See [SolidRhino releases](https://github.com/SolidRhino/zilean/releases) for the changelog of the base.
 
 ## Configuration
 
@@ -80,7 +138,7 @@ compressed text and migrated legacy HTML pages.
 
 Failed reads or decoding remain eligible for the next sync. On upgrade, only
 zero-entry parsed-page cache records are cleared so previously unsupported lists
-can retry; legitimate empty lists are rechecked once too. Imported torrents and
+can retry, and legitimate empty lists are rechecked once too. Imported torrents and
 successfully parsed pages are preserved.
 
 ### Timezone
@@ -171,7 +229,7 @@ Set `shm_size: 256m` on your PostgreSQL container. See the docker-compose exampl
 ```yaml
 services:
   zilean:
-    image: ghcr.io/solidrhino/zilean:latest
+    image: ghcr.io/h1n054ur/zilean:latest
     container_name: zilean
     restart: unless-stopped
     ports:
