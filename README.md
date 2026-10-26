@@ -4,6 +4,28 @@
 
 This is a fork of [iPromKnight/zilean](https://github.com/iPromKnight/zilean) that brings a few community forks together in one image. It builds on [SolidRhino/zilean](https://github.com/SolidRhino/zilean), which in turn builds on [Thoroslives/zilean](https://github.com/Thoroslives/zilean).
 
+## Coming from ghcr.io/thoroslives/zilean
+
+Thoroslives has [handed maintenance of his fork over](https://github.com/Thoroslives/zilean/issues/25) to this one. His last release is v3.10.1.
+
+To switch, change the image to `ghcr.io/h1n054ur/zilean:latest` and keep the same PostgreSQL database and environment variables. If `/app/data` is a bind-mounted host folder rather than a named volume, give it to the container user first (`chown -R 100:101 ./data`), because the image no longer runs as root.
+
+On first start Zilean applies its database migrations by itself. Three of them are new since v3.10.1 and change existing data:
+
+- `SearchV8KnnSearch` drops the GIN trigram index on `Torrents.CleanedParsedTitle`, builds a GiST one in its place and replaces the search function. On a large table this first start can take a while.
+- `RetryFailedDmmHashlists` deletes the `ParsedPages` rows with zero entries, so those DMM pages are fetched again on the next sync.
+- `AddImdbOriginalTitle` adds an `OriginalTitle` column to `ImdbFiles`, filled on the next IMDb import.
+
+Back up the database before you switch, for example:
+
+```sh
+docker compose exec -T postgres pg_dump -U postgres -Fc zilean > zilean-v3.10.1.dump
+```
+
+Going back to v3.10.1 after these migrations has not been tested. If you need to go back, restore that dump rather than starting the old image on the migrated database.
+
+Please report problems as [GitHub issues on h1n054ur/zilean](https://github.com/h1n054ur/zilean/issues).
+
 ## About this fork
 
 What it merges, with thanks to each author:
@@ -11,6 +33,8 @@ What it merges, with thanks to each author:
 - [SolidRhino/zilean](https://github.com/SolidRhino/zilean) `main` at `61bfa90` as the base. Besides the Thoroslives work it has the API key log redaction ([#3](https://github.com/SolidRhino/zilean/pull/3)), security hardening, the GiST KNN trigram search, batched ParsedPages writes and the blacklist endpoints.
 - [Thoroslives/zilean PR #26](https://github.com/Thoroslives/zilean/pull/26) by [yowmamasita](https://github.com/yowmamasita/zilean): DMM now publishes some hashlists as `#id=<UUID>` stub pages, with the payload stored in the hashlists repository. The scraper reads those payloads, and a page that fails to decode is retried on the next sync instead of being saved as empty. The two commits are merged with their original history.
 - The IMDb `originalTitle` column from [cloudpftc/zilean](https://github.com/cloudpftc/zilean), ported by hand.
+
+Thanks as well to Thoroslives for the work this fork is built on and for handing his fork over.
 
 What it fixes on top:
 
